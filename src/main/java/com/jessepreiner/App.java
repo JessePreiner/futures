@@ -6,8 +6,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 public class App {
@@ -42,41 +40,35 @@ public class App {
     private static HashMap<String, String> resultViaCollect(List<Response> responses) {
         return responses.stream()
                         .collect(HashMap::new,
-                                mutatingAccumulator(),
+                                App::mutatingAccumulator,
                                 HashMap::putAll);
     }
 
     private static HashMap<String, String> resultViaReduce(List<Response> responses) {
         return responses.stream()
                         .reduce(new HashMap<>(),
-                                nonMutatingAccumulator(),
+                                App::nonMutatingAccumulator,
                                 (hashMap1, hashMap2) -> {
                                     hashMap1.putAll(hashMap2);
                                     return hashMap1;
                                 });
     }
 
-    // BiConsumer seems to do in place mutation
-    private static BiConsumer<HashMap<String, String>, Response> mutatingAccumulator() {
-        return (map, response) -> {
-            if (response instanceof SuccessResponse) {
-                map.put("success", map.getOrDefault("success", "").concat(((SuccessResponse) response).view.toString()));
-            } else {
-                map.put("fail", map.getOrDefault("fail", "").concat(String.format("%s %s", ((FailureResponse) response).view.toString(), ((FailureResponse) response).failureMessage)));
-            }
-        };
+    private static void mutatingAccumulator(HashMap<String, String> map, Response response) {
+        if (response instanceof SuccessResponse) {
+            map.put("success", map.getOrDefault("success", "").concat(((SuccessResponse) response).view.toString()));
+        } else {
+            map.put("fail", map.getOrDefault("fail", "").concat(String.format("%s %s", ((FailureResponse) response).view.toString(), ((FailureResponse) response).failureMessage)));
+        }
     }
 
-    // TODO does this also mutate but just return a new hashmap? Or is the accumulator a new map?
-    private static BiFunction<HashMap<String, String>, Response, HashMap<String, String>> nonMutatingAccumulator() {
-        return (hashMap, response) -> {
-            if (response instanceof SuccessResponse) {
-                hashMap.put("success", hashMap.getOrDefault("success", "").concat(((SuccessResponse) response).view.toString()));
-            } else {
-                hashMap.put("fail", hashMap.getOrDefault("fail", "").concat(String.format("%s %s", ((FailureResponse) response).view.toString(), ((FailureResponse) response).failureMessage)));
-            }
-            return hashMap;
-        };
+    private static HashMap<String, String> nonMutatingAccumulator(HashMap<String, String> hashMap, Response response) {
+        if (response instanceof SuccessResponse) {
+            hashMap.put("success", hashMap.getOrDefault("success", "").concat(((SuccessResponse) response).view.toString()));
+        } else {
+            hashMap.put("fail", hashMap.getOrDefault("fail", "").concat(String.format("%s %s", ((FailureResponse) response).view.toString(), ((FailureResponse) response).failureMessage)));
+        }
+        return hashMap;
     }
 
     private static CompletionStage<ResponseData> getResponse(boolean throwEx) {
